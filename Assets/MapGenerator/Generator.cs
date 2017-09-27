@@ -6,259 +6,197 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace CaveMapGenerator
-{
-    public class Generator
-    {
-        /// <summary>
-        /// the swapchain containing the buffers that will receive the operations
-        /// </summary>
-        private SwapChain swapChain = new SwapChain(100);
+namespace CaveMapGenerator {
+	public class Generator {
+		/// <summary>
+		/// the swapchain containing the buffers that will receive the operations
+		/// </summary>
+		private Swapchain map = new Swapchain(100);
 
-        /// <summary>
-        /// Provides the top buffer of the swapchain
-        /// </summary>
-        public bool[,] Map { get { return swapChain.ReadBuffer; } }
+		public bool[,] GetBufferCopy() {
+			return map.GetBufferCopy();
+		}
 
-        /// <summary>
-        /// size of the map generated
-        /// </summary>
-        public int Size { get { return Map.GetLength(0); } }
+		public int Size { get { return map.Size; } }
 
-        /// <summary>
-        /// Fill a buffer with random noise
-        /// </summary>
-        public void NewMap(int size, float initialDensity)
-        {
-            //reset the swapchain if needed
-            if (size != Size)
-                swapChain = new SwapChain(size);
+		/// <summary>
+		/// Fill a buffer with random noise
+		/// </summary>
+		public void NewMap( int size, float initialDensity ) {
+			//reset the swapchain if needed
+			if ( size != map )
+				map = size;
+			map.Write(() => Random.value < initialDensity);
+		}
 
-            //fill the buffers with random noise
-            Tools.Foreach2D(swapChain.WriteBuffer, (ref bool cell) =>
-                cell = Random.value < initialDensity);
+		/// <summary>
+		/// Iterate through the cells to refine the cave
+		/// </summary>
+		public void Refine( float minThreshold, float maxThreshold ) {
+			int count;
+			map.Write(( coordinate, cell ) => {
+				count = map.CountAliveAdjacentCells(coordinate,1);
+				return ( cell ) ?
+					count >= minThreshold :
+					count > maxThreshold;
+			});
+		}
+		public void RemoveIsle(Coordinate c ) {
+			bool[,] buffer = map.GetBufferCopy();
+			Flood(ref buffer, c.x, c.y, !buffer[c.x, c.y]);
+			map.Write(buffer);
+		}
+		/// <summary>
+		/// Recursive method that floods the cave to discover holes in it.
+		/// </summary>
+		public void Flood( ref bool[,] buffer, int x, int y , bool target) {
+			//if this cell is valid and it's empty
+			if ( !( x < 0 || y < 0 || x >= buffer.GetLength(0) || y >= buffer.GetLength(0) ) &&  buffer[x,y] != target ) {
 
-            //flip the buffer to have the written buffer on the read part
-            swapChain.FlipBuffers();
-        }
+				//write fill it
+				buffer[x, y] = target;
 
-        /// <summary>
-        /// Counts how much cells around the given coodinate are alive
-        /// </summary>
-        /// <returns>the ammount of true cells</returns>
-        private int CountAliveAdjacentCells(int cellX, int cellY)
-        {
-            int result = 0, x, y;
+				//reverberate to adjacent cells
+				Flood(ref buffer, x + 1, y, target);
+				Flood(ref buffer, x - 1, y, target);
+				Flood(ref buffer, x, y + 1, target);
+				Flood(ref buffer, x, y - 1, target);
+			}
+		}
 
-            for (int j = -1; j < 2; j++)
-                for (int i = -1; i < 2; i++)
-                {
-                    x = i + cellX;
-                    y = j + cellY;
+		/// <summary>
+		/// Recursive method that floods the cave to discover holes in it, it fills a hole object that was given during the method invocation
+		/// </summary>
+		/// <param name="hole">The hole that is going to be filled</param>
+		private void Flood( ref bool[,] buffer, Hole hole, int x, int y ) {
+			//if this cell is valid and it's empty
+			if ( !( x < 0 || y < 0 || x >= buffer.GetLength(0) || y >= buffer.GetLength(0) ) &&
+			    !buffer[x, y] ) {
+				//write fill it
+				buffer[x, y] = true;
 
-                    if (!(i == 0 && j == 0) &&
-                       ((x < 0 || y < 0 || x >= Size || y >= Size) ||
-                         swapChain.WriteBuffer[x, y]))
-                        result++;
-                }
-            return result;
-        }
+				//add its coordinate to the hole's list
+				hole.AddCell(x, y);
 
-        /// <summary>
-        /// Iterate through the cells to refine the cave
-        /// </summary>
-        public void Refine(float minThreshold, float maxThreshold)
-        {
-            swapChain.FlipBuffers();
+				//reverberate to adjacent cells
+				Flood(ref buffer, hole, x + 1, y);
+				Flood(ref buffer, hole, x - 1, y);
+				Flood(ref buffer, hole, x, y + 1);
+				Flood(ref buffer, hole, x, y - 1);
+			}
+		}
 
-            int count;
+		/// <summary>
+		/// Read the buffers and identify 'island' holes 
+		/// </summary>
+		public int AutoIdentifyHoles() {
+			//Initialize a hole list to hold every hole this map has
+			List<Hole> holes = new List<Hole>();
 
-            Tools.Foreach2D(swapChain.WriteBuffer, (int x, int y, ref bool cell) => {
-                count = CountAliveAdjacentCells(x, y);
-                Map[x, y] = (cell) ?
-                     count >= minThreshold:
-                     count > maxThreshold;
-            });
-        }
+			//this reference has multiple purposes, it is generaly used as an auxiliar reference.
+			Hole auxHoleRef = null;
 
-        /// <summary>
-        /// Recursive method that floods the cave to discover holes in it.
-        /// </summary>
-        public void Flood(int x, int y)
-        {
-            //if this cell is valid and it's empty
-            if (!(x < 0 || y < 0 || x >= Size || y >= Size) &&
-                !swapChain.ReadBuffer[x, y])
-            {
-                //write fill it
-                swapChain.ReadBuffer[x, y] = true;
+			//extract buffer from data structure for more complex operations.
+			bool[,] buffer = map.GetBufferCopy();
 
-                //reverberate to adjacent cells
-                Flood(x + 1, y);
-                Flood(x - 1, y);
-                Flood(x, y + 1);
-                Flood(x, y - 1);
-            }
-        }
+			//extract isles from buffer
+			Tools.Foreach2D(buffer, (int x,int y, ref bool cell) => {
+				if ( !cell ) {
+					//create a hole
+					auxHoleRef = new Hole();
 
-        /// <summary>
-        /// Recursive method that floods the cave to discover holes in it, it fills a hole object that was given during the method invocation
-        /// </summary>
-        /// <param name="hole">The hole that is going to be filled</param>
-        private void Flood(Hole hole, int x, int y)
-        {
-            //if this cell is valid and it's empty
-            if (!(x < 0 || y < 0 || x >= Size || y >= Size) &&
-                !swapChain.WriteBuffer[x, y])
-            {
-                //write fill it
-                swapChain.WriteBuffer[x, y] = true;
+					//run a recursive method to find every other open cell connected to this one
+					//this method also fills the hole that was given
+					//and closes whatever cell is conected to this one (to avoid to copy the information twice)
+					Flood(ref buffer, auxHoleRef, x, y);
 
-                //add its coordinate to the hole's list
-                hole.AddCell(x, y);
+					//Add this hole to the list of holes
+					holes.Add(auxHoleRef);
+				}
+			});
 
-                //reverberate to adjacent cells
-                Flood(hole, x + 1, y);
-                Flood(hole, x - 1, y);
-                Flood(hole, x, y + 1);
-                Flood(hole, x, y - 1);
-            }
-        }
+			//clean the auxiliar variable
+			auxHoleRef = null;
 
-        /// <summary>
-        /// Read the buffers and identify 'island' holes 
-        /// </summary>
-        public int AutoIdentifyHoles()
-        {
-            //Flip the buffers
-            swapChain.FlipBuffers();
+			//get the biggest hole found (the main cavern)
+			foreach ( var hole in holes )
+				if ( auxHoleRef == null || auxHoleRef.count < hole.count )
+					auxHoleRef = hole;
 
-            //Initialize a hole list to hold every hole this map has
-            List<Hole> holes = new List<Hole>();
+			//if there's a hole (it might be full black)
+			if ( auxHoleRef != null )
+				map.Write(auxHoleRef.holeCells, () => true, () => false);
 
-            //this reference has multiple purposes,
-            //it is generaly used as an auxiliar reference.
-            Hole auxiliarHoleReference = null;
+			return ( auxHoleRef != null ) ? auxHoleRef.count : 0;
+		}
+		/// <summary>
+		/// Fully generate a map using the stored map generation data
+		/// </summary>
+		public void GenerateMap( int refinementSteps, float minThreshold, float maxThreshold, float initialDensity, int mapSize ) {
+			//the actual size of the newly generated map
+			int size = 0;
 
-            //for each cell in the buffer
-            Tools.Foreach2D(swapChain.WriteBuffer, (int x, int y, ref bool cell) =>
-            {
+			//a nice debug message that is displayed at the console
+			string debugMessage = "";
 
-                //if that cell is is open
-                if (!cell)
-                {
-                    //create a hole
-                    auxiliarHoleReference = new Hole();
+			//initialize the map
+			NewMap(mapSize, initialDensity);
 
-                    //run a recursive method to find every other open cell connected to this one
-                    //this method also fills the hole that was given
-                    //and closes whatever cell is conected to this one (to avoid to copy the information twice)
-                    Flood(auxiliarHoleReference, x, y);
+			//refine it some times
+			for ( int i = 0; i < refinementSteps; i++ )
+				Refine(minThreshold, maxThreshold);
 
-                    //Add this hole to the list of holes
-                    holes.Add(auxiliarHoleReference);
-                }
-            });
+			//auto identify holes
+			size = AutoIdentifyHoles();
 
-            //Flip the buffers
-            swapChain.FlipBuffers();
+			//write the debug log
+			debugMessage += "Map generated with size " + size + " cells\n";
+		}
 
-            //clean the auxiliar variable
-            auxiliarHoleReference = null;
+		/// <summary>
+		/// DEPRECATED, use the other overload
+		/// Fully generate a map using the stored map generation data
+		/// </summary>
+		public void GenerateMap( int minCaveSize, int maxCaveSize, int refinementSteps, float minThreshold, float maxThreshold, float initialDensity, int mapSize ) {
+			//the actual size of the newly generated map
+			int size = 0;
 
-            //get the bigger hole found (the main cavern
-            foreach (var hole in holes)
-                if (auxiliarHoleReference == null || auxiliarHoleReference.count < hole.count)
-                    auxiliarHoleReference = hole;
+			//this variable holds the how much trials were done before quiting to get a map that has the right size
+			int safeLock = 0;
 
-            //if there's a hole in the entire map (it might be full black
-            if (auxiliarHoleReference != null)
-            {
-                //set the entire buffer to be black
-                Tools.Foreach2D(swapChain.WriteBuffer, (ref bool cell) => cell = true);
+			//a nice debug message that is displayed at the console
+			string debugMessage = "";
 
-                //for each cell recorded at the hole object, paint the buffer white
-                foreach (Coordinate coordinate in auxiliarHoleReference.holeCells)
-                    swapChain.WriteBuffer[coordinate.x, coordinate.y] = false;
-            }
+			//for as long as we dont have a map what fits the minmun required size
+			do {
+				//add one attempt to the safe lock
+				safeLock++;
 
-            //Flip the buffers
-            swapChain.FlipBuffers();
+				//initialize the map
+				NewMap(mapSize, initialDensity);
 
-            return (auxiliarHoleReference != null) ? auxiliarHoleReference.count : 0;
-        }
+				//refine it some times
+				for ( int i = 0; i < refinementSteps; i++ )
+					Refine(minThreshold, maxThreshold);
 
-        /// <summary>
-        /// Fully generate a map using the stored map generation data
-        /// </summary>
-        public void GenerateMap(int refinementSteps, float minThreshold, float maxThreshold, float initialDensity, int mapSize)
-        {
-            //the actual size of the newly generated map
-            int size = 0;
+				//auto identify holes
+				size = AutoIdentifyHoles();
 
-            //a nice debug message that is displayed at the console
-            string debugMessage = "";
+				//write the debug log
+				debugMessage += "Atempt number " + safeLock + ", Map size = " + size + " cells\n";
 
-            //initialize the map
-            NewMap(mapSize, initialDensity);
+				//check is the generated map is fit
+			} while ( ( size < minCaveSize || size > maxCaveSize ) && safeLock < 10 );
 
-            //refine it some times
-            for (int i = 0; i < refinementSteps; i++)
-                Refine(minThreshold, maxThreshold);
+			//if the map is not ideal
+			if ( safeLock >= 10 )
+				//send an warning
+				Debug.LogWarning("Map generated is not ideal\n" + debugMessage);
+			else
+				//if its ideal send a ok message
+				Debug.Log("Map with accepted size generated\n" + debugMessage);
 
-            //auto identify holes
-            size = AutoIdentifyHoles();
+		}
 
-            //write the debug log
-            debugMessage += "Map generated with size " + size + " cells\n";
-        }
-        
-        /// <summary>
-        /// DEPRECATED, use the other overload
-        /// Fully generate a map using the stored map generation data
-        /// </summary>
-        public void GenerateMap(int minCaveSize, int maxCaveSize, int refinementSteps, float minThreshold, float maxThreshold, float initialDensity, int mapSize)
-        {
-            //the actual size of the newly generated map
-            int size = 0;
-
-            //this variable holds the how much trials were done before quiting to get a map that has the right size
-            int safeLock = 0;
-
-            //a nice debug message that is displayed at the console
-            string debugMessage = "";
-
-            //for as long as we dont have a map what fits the minmun required size
-            do
-            {
-                //add one trial to the safe lock
-                safeLock++;
-
-                //initialize the map
-                NewMap(mapSize, initialDensity);
-
-                //refine it some times
-                for (int i = 0; i < refinementSteps; i++)
-                    Refine(minThreshold, maxThreshold);
-
-                //auto identify holes
-                size = AutoIdentifyHoles();
-
-                //write the debug log
-                debugMessage += "Atempt number " + safeLock + ", Map size = " + size + " cells\n";
-
-                //check is the generated map is fit
-            } while ((size < minCaveSize || size > maxCaveSize) && safeLock < 10);
-
-            //if the map is not ideal
-            if (safeLock >= 10)
-                //send an warning
-                Debug.LogWarning("Map generated is not ideal\n" + debugMessage);
-            else
-                //if its ideal send a ok message
-                Debug.Log("Map with accepted size generated\n" + debugMessage);
-
-        }
-        
-    }
+	}
 }

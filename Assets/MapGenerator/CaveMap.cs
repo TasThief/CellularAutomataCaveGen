@@ -16,6 +16,7 @@ public class CaveMap : ScriptableObject
     /// </summary>
     [SerializeField][HideInInspector]
     private bool[] map;
+    
 
     /// <summary>
     /// The lateral size of the map

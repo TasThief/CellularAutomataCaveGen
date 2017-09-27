@@ -21,4 +21,5 @@ public class MapTestObject : MonoBehaviour {
                     Gizmos.DrawCube(new Vector3(x, 0.0f, y), Vector3.one);
             });
     }
+
 }

@@ -114,10 +114,10 @@ namespace CaveMapGenerator
                 int mouseY = Mathf.CeilToInt((Event.current.mousePosition.y - displayPort.y) * ratio);
 
                 //run the flood routine
-                Generator.Flood(Generator.Size - mouseY, mouseX);
+                Generator.RemoveIsle(new Coordinate(Generator.Size - mouseY, mouseX));
 
                 //update the display
-                Display.UpdateDisplay(Generator.Map);
+                Display.UpdateDisplay(Generator.GetBufferCopy());
 
                 //redraw the entire menu
                 Repaint();
@@ -302,7 +302,7 @@ namespace CaveMapGenerator
             DrawButtonArray(ref heightDisplace, "Display Resolution", "Change the display image's resolution", colorDisplaySetup, (resolution) =>
             {
                 Display.Resolution = resolution;
-                Display.UpdateDisplay(Generator.Map);
+                Display.UpdateDisplay(Generator.GetBufferCopy());
             }, 256, 512, 1024);
 
             //GENERATE MAP
@@ -310,23 +310,19 @@ namespace CaveMapGenerator
             DrawButton(ref heightDisplace, colorMapGeneration, "Automatically Generate Level", "Generate a new map, this map will suffer 4 iterations and will have its holes removed", () =>
             {
                 Generator.GenerateMap(refinementSteps, minThreshold, maxThreshold, initialDensity, newMapSize);
-                Display.UpdateDisplay(Generator.Map);
+                Display.UpdateDisplay(Generator.GetBufferCopy());
             });
 
             //MAP SIZE SLIDER
             //draw a slider that controlls thew size of the map
             DrawSlider(ref heightDisplace, colorMapGeneration, "Cave Map Size", "Change the size of the map that is going to be generated next", ref newMapSize, 15, 250);
 
-         /*   //MAP ACCEPTANCE LEVEL
-            //draw a slider that controlls thew size of the map
-            DrawDualSlider(ref heightDisplace, "Acceptance Range", "How much white cells are needed to validate an automatically generated map, this is a logarithmic scale with base2", colorMapGeneration, 1f, 15.3f, ref minAcceptanceCellCount, ref maxAcceptanceCellCount);
-*/
             //NEW NOISE MAP
             //draw a button that generates a new noise map to be processed further
             DrawButton(ref heightDisplace, colorMapSetUpColor, "Generate New Noise Map", "Generates a brand new noise map to be further processed", () =>
             {
                 Generator.NewMap(newMapSize, initialDensity);
-                Display.UpdateDisplay(Generator.Map);
+                Display.UpdateDisplay(Generator.GetBufferCopy());
             });
 
             //MAP DENSITY
@@ -350,7 +346,7 @@ namespace CaveMapGenerator
             DrawButton(ref heightDisplace, colorMapSetUpColor, "Iterate", "Force the celular automata to iterate once", () =>
             {
                 Generator.Refine(minThreshold, maxThreshold);
-                Display.UpdateDisplay(Generator.Map);
+                Display.UpdateDisplay(Generator.GetBufferCopy());
             });
 
             //FILL HOLES
@@ -358,13 +354,13 @@ namespace CaveMapGenerator
             DrawButton(ref heightDisplace, colorMapSetUpColor, "Fill Holes", "Remove every holes on the map", () =>
             {
                 Generator.AutoIdentifyHoles();
-                Display.UpdateDisplay(Generator.Map);
+                Display.UpdateDisplay(Generator.GetBufferCopy());
             });
 
             //EXPORT
             //Draw a button that will export the generated map into a scriptable object
             DrawButton(ref heightDisplace, colorMapExportColor, "Export", "Export the map into a scriptable object to be used later",
-                () => Loader.Export(Generator.Map));
+                () => Loader.Export(Generator.GetBufferCopy()));
         }
 
     }

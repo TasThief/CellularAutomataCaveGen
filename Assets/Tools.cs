@@ -4,8 +4,7 @@
 ///                   the tools here auxiliate 2d foreach processes
 ///   Author:         Thiago de Araujo Silva  Date: 8/11/2016
 ///-----------------------------------------------------------------
-using UnityEngine;
-
+///
 /// <summary>
 /// this delegate is used by the foreach2d.
 /// </summary>
