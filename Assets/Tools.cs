@@ -12,7 +12,28 @@
 /// <param name="x">x index of the iterated object</param>
 /// <param name="y">y index of the iterated object</param>
 /// <param name="obj">ref to the object passing through the iteration</param>
-public delegate void Foreach2DExplicitDelegate<T>(int x, int y, ref T obj);
+public delegate void Foreach2DExplicitDelegate<T>(Coordinate c, ref T obj);
+
+public struct Coordinate
+{
+	public int x, y;
+	public Coordinate(int x = 0, int y = 0)
+	{
+		this.x = x;
+		this.y = y;
+	}
+	public static Coordinate operator +(Coordinate first, Coordinate seccond)
+	{
+		Coordinate result = new Coordinate(first.x + seccond.x, first.y + seccond.y);
+		return result;
+	}
+	public static Coordinate operator -(Coordinate first, Coordinate seccond)
+	{
+		Coordinate result = new Coordinate(first.x - seccond.x, first.y - seccond.y);
+		return result;
+	}
+}
+
 
 /// <summary>
 /// this delegate is used by the foreach2d.
@@ -36,9 +57,10 @@ public static class Tools
     /// <param name="array">The collection</param>
     /// <param name="function">The function that will be operated in each object of the collection</param>
     public static void Foreach2D<T>(T[,] array, Foreach2DExplicitDelegate<T> function){
-        for (int y = 0; y < array.GetLength(1); y++)
+	
+		for (int y = 0; y < array.GetLength(1); y++)
             for (int x = 0; x < array.GetLength(0); x++)
-                function(x, y, ref array[x, y]);
+                function(new Coordinate(x,y), ref array[x, y]);
     }
 
     /// <summary>
@@ -50,7 +72,7 @@ public static class Tools
     public static void Foreach2D<T>(T[ ] array,int size, Foreach2DExplicitDelegate<T> function){
         for (int y = 0; y < size; y++)
             for (int x = 0; x < size; x++)
-                function(x, y, ref array[x * size + y]);
+                function(new Coordinate(x, y), ref array[x * size + y]);
     }
     
     /// <summary>

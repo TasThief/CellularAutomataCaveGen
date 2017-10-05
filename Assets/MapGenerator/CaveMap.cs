@@ -10,44 +10,66 @@ using UnityEngine;
 /// </summary>
 public class CaveMap : ScriptableObject
 {
-    /// <summary>
-    /// The map information stored in this object
-    /// the map is stored in a id array form due the fact that 2d arrays are not serealized in unity
-    /// </summary>
-    [SerializeField][HideInInspector]
-    private bool[] map;
-    
+	/// <summary>
+	/// The map information stored in this object
+	/// the map is stored in a id array form due the fact that 2d arrays are not serealized in unity
+	/// </summary>
+	[SerializeField]
+	[HideInInspector]
+	private bool[] map;
 
-    /// <summary>
-    /// The lateral size of the map
-    /// </summary>
-    [SerializeField]
-    private int size;
+	[SerializeField]
+	[HideInInspector]
+	private float[] height;
 
-    /// <summary>
-    /// Getter to the size element;
-    /// </summary>
-    public int Size { get { return size; } }
+	/// <summary>
+	/// The lateral size of the map
+	/// </summary>
+	[SerializeField]
+	private int size;
 
-    public bool[] Map { get { return map; } }
+	/// <summary>
+	/// Getter to the size element;
+	/// </summary>
+	public int Size { get { return size; } }
 
-    /// <summary>
-    /// Indexer that provides a better get/set to the map object
-    /// it maps d1 arrays into 2d arrays
-    /// </summary>
-    public bool this[int x, int y] {
-        get { return map[x * size + y];  }
-        set { map[x * size + y] = value; }
-    }
+	public bool[] Map { get { return map; } }
+	public float[] Height { get { return height; } }
 
-    /// <summary>
-    /// Initialize a map objct
-    /// </summary>
-    /// <param name="map">the map stored here</param>
-    public void InitializeMap(bool[,] map) {
-        size = map.GetLength(0);
-        this.map = new bool[size * size];
-        Tools.Foreach2D(map, (int x, int y, ref bool cell) => this.map[x * size + y] = cell);
-    }
+	/// <summary>
+	/// Indexer that provides a better get/set to the map object
+	/// it maps d1 arrays into 2d arrays
+	/// </summary>
+	public bool GetMapData(int x, int y)
+	{
+		return map[x * size + y];
+	}
+	public void SetMapData(int x, int y, bool value)
+	{
+		map[x * size + y] = value;
+	}
+
+	public float GetHeightData(int x, int y)
+	{
+		return height[x * size + y];
+	}
+	public void SetHeightData(int x, int y, float value)
+	{
+		height[x * size + y] = value;
+	}
+
+	/// <summary>
+	/// Initialize a map objct
+	/// </summary>
+	/// <param name="map">the map stored here</param>
+	public void InitializeMap(bool[,] map, float[,] height)
+	{
+		size = map.GetLength(0);
+		this.map = new bool[size * size];
+		Tools.Foreach2D(map, (Coordinate c, ref bool cell) => this.map[c.x * size + c.y] = cell);
+
+		this.height = new float[size * size];
+		Tools.Foreach2D(height, (Coordinate c, ref float cell) => this.height[c.x * size + c.y] = cell);
+	}
 }
 

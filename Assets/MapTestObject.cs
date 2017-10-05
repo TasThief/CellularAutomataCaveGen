@@ -16,9 +16,9 @@ public class MapTestObject : MonoBehaviour {
     void OnDrawGizmos()
     {
         if(loadedMap != null)
-            Tools.Foreach2D(loadedMap.Map, loadedMap.Size,(int x, int y, ref bool cell) => {
+            Tools.Foreach2D(loadedMap.Map, loadedMap.Size,(Coordinate c, ref bool cell) => {
                 if(cell)
-                    Gizmos.DrawCube(new Vector3(x, 0.0f, y), Vector3.one);
+                    Gizmos.DrawCube(new Vector3(c.x, 0.0f, c.y), Vector3.one);
             });
     }
 

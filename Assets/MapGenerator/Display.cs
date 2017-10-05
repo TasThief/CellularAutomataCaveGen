@@ -51,22 +51,36 @@ namespace CaveMapGenerator {
 			FlushTexture();
 		}
 
-		public void UpdateDisplay( bool[,] map ) {
+		public void UpdateDisplay( bool[,] map, float[,] height ) {
+			int cx = 0, cy = 0;
+			float i;
 			float ratio = map.GetLength(0) / (float)Resolution;
-			Tools.Foreach2D(textureColors, Resolution, ( int x, int y, ref Color color ) =>
-			    color = ( map[Mathf.FloorToInt(ratio * x), Mathf.FloorToInt(ratio * y)] ) ?
-				  Color.black : Color.white
-			    );
+			Tools.Foreach2D(textureColors, Resolution, ( Coordinate c, ref Color color ) => {
+				cx = Mathf.FloorToInt(ratio * c.x);
+				cy = Mathf.FloorToInt(ratio * c.y);
+				i = Mathf.Lerp(0.3f, 1f, height[cx, cy]);
+				i = Mathf.Floor(i * 10f) / 10f;
+				color = ( map[cx, cy] ) ?
+				  Color.black :
+				  new Color(i, i, i);
+			}  );
 
 			FlushTexture();
 		}
 
 		public void UpdateDisplay( CaveMap map ) {
+			int cx = 0, cy = 0;
+			float i;
 			float ratio = map.Size / (float)Resolution;
-			Tools.Foreach2D(textureColors, Resolution, ( int x, int y, ref Color color ) =>
-			    color = ( map[Mathf.FloorToInt(ratio * x), Mathf.FloorToInt(ratio * y)] ) ?
-				  Color.black : Color.white
-			    );
+			Tools.Foreach2D(textureColors, Resolution, (Coordinate c, ref Color color) => {
+				cx = Mathf.FloorToInt(ratio * c.x);
+				cy = Mathf.FloorToInt(ratio * c.y);
+				i = Mathf.Lerp(0.3f, 1f, map.GetHeightData(cx, cy));
+				i = Mathf.Floor(i * 10f) / 10f;
+				color = ( map.GetMapData(cx, cy) ) ?
+				  Color.black :
+				  new Color(i, i, i);
+			});
 
 			FlushTexture();
 		}
